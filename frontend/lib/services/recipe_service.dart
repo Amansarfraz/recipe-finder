@@ -31,15 +31,41 @@ class RecipeService {
     return RecipeModel.fromJson(res);
   }
 
+  // ---- Favorites ----
+
   Future<List<dynamic>> getFavorites() async {
     return await _api.get(ApiConstants.favorites);
   }
 
-  Future<void> addFavorite(String recipeId) async {
-    await _api.post('${ApiConstants.favorites}/$recipeId', {});
+  Future<void> addFavorite({
+    required String recipeId,
+    required String title,
+    String? image,
+    int? cookTime,
+    int? servings,
+    String source = 'spoonacular',
+  }) async {
+    await _api.post(ApiConstants.favorites, {
+      'recipe_id': recipeId,
+      'title': title,
+      'image': image,
+      'cook_time': cookTime,
+      'servings': servings,
+      'source': source,
+    });
   }
 
   Future<void> removeFavorite(String recipeId) async {
     await _api.delete('${ApiConstants.favorites}/$recipeId');
+  }
+
+  // ---- Recent Searches ----
+
+  Future<List<dynamic>> getRecentSearches() async {
+    return await _api.get(ApiConstants.recentSearches);
+  }
+
+  Future<void> logRecentSearch(String query) async {
+    await _api.post(ApiConstants.recentSearches, {'query': query});
   }
 }

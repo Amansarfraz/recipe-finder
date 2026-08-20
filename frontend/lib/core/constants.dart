@@ -13,4 +13,5 @@ class ApiConstants {
   static const String shoppingList = "/shopping-list";
   static const String userMe = "/users/me";
   static const String notifications = "/notifications";
+  static const String recentSearches = "/recent-searches";
 }

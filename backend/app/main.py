@@ -1,6 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, recipes, favorites, comments, shopping_list, users, notifications
+from app.routers import (
+    auth,
+    recipes,
+    favorites,
+    comments,
+    shopping_list,
+    users,
+    notifications,
+    recent_searches,
+)
 
 app = FastAPI(title="Recipe Finder API", version="1.0.0")
 
@@ -19,6 +28,7 @@ app.include_router(comments.router)
 app.include_router(shopping_list.router)
 app.include_router(users.router)
 app.include_router(notifications.router)
+app.include_router(recent_searches.router)
 
 
 @app.get("/")

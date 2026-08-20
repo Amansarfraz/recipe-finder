@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme.dart';
-import '../../widgets/recipe_card.dart';
+import '../../services/recipe_service.dart';
 import '../recipe/recipe_detail_screen.dart';
 
 class FavoritesScreen extends StatefulWidget {
@@ -10,75 +10,206 @@ class FavoritesScreen extends StatefulWidget {
 }
 
 class _FavoritesScreenState extends State<FavoritesScreen> {
-  final List<String> tabs = ['All', 'Breakfast', 'Dinner', 'Desserts'];
-  String selectedTab = 'All';
+  final RecipeService _recipeService = RecipeService();
+  List<dynamic> favorites = [];
+  bool isLoading = true;
+  String? error;
 
-  // Placeholder data — replace with RecipeService.getFavorites() results
-  final List<Map<String, dynamic>> favorites = [
-    {'title': 'Creamy Sausage Pasta', 'cookTime': 30, 'rating': 4.9, 'tag': 'Dinner'},
-    {'title': 'Cheese Pizza', 'cookTime': 30, 'rating': 5.0, 'tag': 'Dinner'},
-    {'title': 'Croque Madame', 'cookTime': 20, 'rating': 6.3, 'tag': 'Breakfast'},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadFavorites();
+  }
+
+  Future<void> _loadFavorites() async {
+    setState(() {
+      isLoading = true;
+      error = null;
+    });
+    try {
+      final result = await _recipeService.getFavorites();
+      setState(() => favorites = result);
+    } catch (e) {
+      setState(() => error = 'Could not load favorites: $e');
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _removeFavorite(String recipeId, int index) async {
+    // Optimistically remove from the list, restore it if the API call fails.
+    final removed = favorites[index];
+    setState(() => favorites.removeAt(index));
+    try {
+      await _recipeService.removeFavorite(recipeId);
+    } catch (e) {
+      setState(() => favorites.insert(index, removed));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not remove favorite: $e')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final filtered = selectedTab == 'All'
-        ? favorites
-        : favorites.where((f) => f['tag'] == selectedTab).toList();
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Favorites'),
-        actions: [IconButton(icon: const Icon(Icons.search), onPressed: () {})],
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: tabs.map((t) {
-                  final selected = t == selectedTab;
-                  final count = t == 'All' ? favorites.length : favorites.where((f) => f['tag'] == t).length;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text('$t ($count)'),
-                      selected: selected,
-                      selectedColor: AppColors.primary,
-                      labelStyle: TextStyle(color: selected ? Colors.white : AppColors.textDark),
-                      backgroundColor: Colors.white,
-                      onSelected: (_) => setState(() => selectedTab = t),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-          Expanded(
-            child: filtered.isEmpty
-                ? const Center(child: Text('No favorites yet', style: TextStyle(color: AppColors.textGrey)))
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: filtered.length,
-                    itemBuilder: (context, i) {
-                      final r = filtered[i];
-                      return RecipeCard(
-                        title: r['title'],
-                        cookTime: r['cookTime'],
-                        rating: r['rating'],
-                        tag: r['tag'],
-                        isFavorite: true,
-                        onFavoriteToggle: () => setState(() => favorites.removeAt(i)),
-                        onTap: () => Navigator.push(
-                            context, MaterialPageRoute(builder: (_) => RecipeDetailScreen(title: r['title']))),
-                      );
-                    },
-                  ),
-          ),
+        actions: [
+          IconButton(
+              icon: const Icon(Icons.refresh), onPressed: _loadFavorites),
         ],
       ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(error!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: AppColors.textGrey)),
+                  ),
+                )
+              : favorites.isEmpty
+                  ? const Center(
+                      child: Text(
+                          'No favorites yet — tap the heart icon on any recipe to save it here.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: AppColors.textGrey)))
+                  : RefreshIndicator(
+                      onRefresh: _loadFavorites,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: favorites.length,
+                        itemBuilder: (context, i) {
+                          final r = favorites[i] as Map<String, dynamic>;
+                          final title = r['title'] ?? 'Untitled Recipe';
+                          final image = r['image'];
+                          final cookTime = r['cook_time'];
+                          final servings = r['servings'];
+                          final recipeId = r['recipe_id'].toString();
+
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => RecipeDetailScreen(
+                                    title: title,
+                                    cookTime: cookTime ?? 30,
+                                    servings: servings ?? 1,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(18),
+                                boxShadow: [
+                                  BoxShadow(
+                                      color: Colors.black.withOpacity(0.06),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4))
+                                ],
+                              ),
+                              child: Stack(
+                                children: [
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius:
+                                            const BorderRadius.vertical(
+                                                top: Radius.circular(18)),
+                                        child: image != null
+                                            ? Image.network(image,
+                                                height: 160,
+                                                width: double.infinity,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (c, e, s) =>
+                                                    Container(
+                                                        height: 160,
+                                                        color: AppColors
+                                                            .primaryLight
+                                                            .withOpacity(0.3)))
+                                            : Container(
+                                                height: 160,
+                                                color: AppColors.primaryLight
+                                                    .withOpacity(0.3),
+                                                child: const Icon(
+                                                    Icons.restaurant,
+                                                    size: 40,
+                                                    color: AppColors.primary)),
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.all(14),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(title,
+                                                style: const TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight:
+                                                        FontWeight.w700)),
+                                            const SizedBox(height: 8),
+                                            Row(
+                                              children: [
+                                                if (cookTime != null)
+                                                  _infoChip(Icons.access_time,
+                                                      '$cookTime min'),
+                                                if (cookTime != null)
+                                                  const SizedBox(width: 8),
+                                                if (servings != null)
+                                                  _infoChip(Icons.people,
+                                                      '$servings servings'),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Positioned(
+                                    top: 12,
+                                    right: 12,
+                                    child: GestureDetector(
+                                      onTap: () => _removeFavorite(recipeId, i),
+                                      child: const CircleAvatar(
+                                        backgroundColor: Colors.white,
+                                        radius: 16,
+                                        child: Icon(Icons.favorite,
+                                            color: AppColors.primary, size: 18),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+    );
+  }
+
+  Widget _infoChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+          color: AppColors.primaryLight.withOpacity(0.4),
+          borderRadius: BorderRadius.circular(10)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 14, color: AppColors.primaryDark),
+        const SizedBox(width: 4),
+        Text(label,
+            style: const TextStyle(fontSize: 12, color: AppColors.textDark)),
+      ]),
     );
   }
 }

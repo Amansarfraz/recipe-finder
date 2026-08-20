@@ -96,6 +96,11 @@ class _AIGeneratorScreenState extends State<AIGeneratorScreen> {
         maxCookTime: maxCookTime,
       );
       final external = results['external_recipes'] as List<dynamic>? ?? [];
+
+      try {
+        await _recipeService.logRecentSearch(ingredients.join(', '));
+      } catch (_) {}
+
       if (!mounted) return;
       Navigator.push(
           context,
