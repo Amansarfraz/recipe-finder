@@ -90,6 +90,7 @@ class _AIResultsScreenState extends State<AIResultsScreen> {
                       MaterialPageRoute(
                         builder: (_) => RecipeDetailScreen(
                           title: title,
+                          imageUrl: image,
                           cookTime: readyIn ?? 30,
                           difficulty: difficulty,
                           servings: servings ?? 1,

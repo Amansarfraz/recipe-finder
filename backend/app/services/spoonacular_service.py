@@ -9,7 +9,7 @@ async def search_by_ingredients(ingredients: list[str], number: int = 10):
         "apiKey": settings.spoonacular_api_key,
         "ingredients": ",".join(ingredients),
         "number": number,
-        "ranking": 1,  # 1 = maximize use of the given ingredients (more forgiving than exact match)
+        "ranking": 1,
         "ignorePantry": True,
     }
     async with httpx.AsyncClient() as client:
@@ -27,7 +27,6 @@ async def get_recipe_information(recipe_id: int):
 
 
 async def get_bulk_recipe_information(recipe_ids: list[int]):
-    """Fetch cook time / servings / etc for a batch of recipe IDs in one call."""
     if not recipe_ids:
         return []
     params = {

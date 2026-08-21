@@ -7,9 +7,9 @@ class RecipeDetailScreen extends StatefulWidget {
   final int cookTime;
   final String difficulty;
   final int servings;
-  final List<Map<String, String>> ingredients; // [{name, amount}]
+  final List<Map<String, String>> ingredients;
   final List<String> instructions;
-  final Map<String, String> nutrition; // {calories, protein, carbs, fat}
+  final Map<String, String> nutrition;
 
   const RecipeDetailScreen({
     super.key,
@@ -35,14 +35,20 @@ class RecipeDetailScreen extends StatefulWidget {
       'Simmer covered for 30 minutes until chicken is tender.',
       'Serve hot with rice or naan.',
     ],
-    this.nutrition = const {'Calories': '420 kcal', 'Protein': '32g', 'Carbs': '18g', 'Fat': '22g'},
+    this.nutrition = const {
+      'Calories': '420 kcal',
+      'Protein': '32g',
+      'Carbs': '18g',
+      'Fat': '22g'
+    },
   });
 
   @override
   State<RecipeDetailScreen> createState() => _RecipeDetailScreenState();
 }
 
-class _RecipeDetailScreenState extends State<RecipeDetailScreen> with SingleTickerProviderStateMixin {
+class _RecipeDetailScreenState extends State<RecipeDetailScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool isFavorite = false;
   final commentCtrl = TextEditingController();
@@ -70,18 +76,14 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> with SingleTick
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppColors.primary, AppColors.primaryDark],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Center(
-                  child: Icon(Icons.ramen_dining, color: Colors.white.withOpacity(0.6), size: 70),
-                ),
-              ),
+              background: widget.imageUrl != null
+                  ? Image.network(
+                      widget.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          _placeholderBackground(),
+                    )
+                  : _placeholderBackground(),
             ),
           ),
           SliverToBoxAdapter(
@@ -90,7 +92,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> with SingleTick
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(widget.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  Text(widget.title,
+                      style: const TextStyle(
+                          fontSize: 22, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
                   Row(
                     children: [
@@ -107,24 +111,35 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> with SingleTick
                     labelColor: AppColors.primary,
                     unselectedLabelColor: AppColors.textGrey,
                     indicatorColor: AppColors.primary,
-                    tabs: const [Tab(text: 'Ingredients'), Tab(text: 'Instructions'), Tab(text: 'Nutrition')],
+                    tabs: const [
+                      Tab(text: 'Ingredients'),
+                      Tab(text: 'Instructions'),
+                      Tab(text: 'Nutrition')
+                    ],
                   ),
                   SizedBox(
                     height: 320,
                     child: TabBarView(
                       controller: _tabController,
-                      children: [_ingredientsTab(), _instructionsTab(), _nutritionTab()],
+                      children: [
+                        _ingredientsTab(),
+                        _instructionsTab(),
+                        _nutritionTab()
+                      ],
                     ),
                   ),
                   const Divider(height: 40),
-                  const Text('Comments & Reviews', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                  const Text('Comments & Reviews',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
                   const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
                         child: TextField(
                           controller: commentCtrl,
-                          decoration: const InputDecoration(hintText: 'Write a review...'),
+                          decoration: const InputDecoration(
+                              hintText: 'Write a review...'),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -133,10 +148,10 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> with SingleTick
                         onPressed: () {
                           if (commentCtrl.text.trim().isEmpty) return;
                           setState(() {
-                            comments.insert(0, {'text': commentCtrl.text, 'rating': 5});
+                            comments.insert(
+                                0, {'text': commentCtrl.text, 'rating': 5});
                             commentCtrl.clear();
                           });
-                          // TODO: wire up to POST /recipes/{id}/comments
                         },
                       ),
                     ],
@@ -146,7 +161,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> with SingleTick
                         padding: const EdgeInsets.only(bottom: 10),
                         child: Container(
                           padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                          decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12)),
                           child: Text(c['text']),
                         ),
                       )),
@@ -159,14 +176,33 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> with SingleTick
     );
   }
 
+  Widget _placeholderBackground() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppColors.primary, AppColors.primaryDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Icon(Icons.ramen_dining,
+            color: Colors.white.withOpacity(0.6), size: 70),
+      ),
+    );
+  }
+
   Widget _infoChip(IconData icon, String label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(color: AppColors.primaryLight.withOpacity(0.4), borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(
+          color: AppColors.primaryLight.withOpacity(0.4),
+          borderRadius: BorderRadius.circular(10)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(icon, size: 14, color: AppColors.primaryDark),
         const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textDark)),
+        Text(label,
+            style: const TextStyle(fontSize: 12, color: AppColors.textDark)),
       ]),
     );
   }
@@ -176,9 +212,11 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> with SingleTick
       children: widget.ingredients
           .map((ing) => ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.circle, size: 8, color: AppColors.primary),
+                leading:
+                    const Icon(Icons.circle, size: 8, color: AppColors.primary),
                 title: Text(ing['name'] ?? ''),
-                trailing: Text(ing['amount'] ?? '', style: const TextStyle(color: AppColors.textGrey)),
+                trailing: Text(ing['amount'] ?? '',
+                    style: const TextStyle(color: AppColors.textGrey)),
               ))
           .toList(),
     );
@@ -192,7 +230,11 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> with SingleTick
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(radius: 12, backgroundColor: AppColors.primary, child: Text('${i + 1}', style: const TextStyle(color: Colors.white, fontSize: 12))),
+            CircleAvatar(
+                radius: 12,
+                backgroundColor: AppColors.primary,
+                child: Text('${i + 1}',
+                    style: const TextStyle(color: Colors.white, fontSize: 12))),
             const SizedBox(width: 10),
             Expanded(child: Text(widget.instructions[i])),
           ],
@@ -207,7 +249,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> with SingleTick
           .map((e) => ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(e.key),
-                trailing: Text(e.value, style: const TextStyle(fontWeight: FontWeight.w600)),
+                trailing: Text(e.value,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
               ))
           .toList(),
     );

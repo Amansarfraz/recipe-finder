@@ -37,7 +37,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   }
 
   Future<void> _removeFavorite(String recipeId, int index) async {
-    // Optimistically remove from the list, restore it if the API call fails.
     final removed = favorites[index];
     setState(() => favorites.removeAt(index));
     try {
@@ -98,6 +97,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                 MaterialPageRoute(
                                   builder: (_) => RecipeDetailScreen(
                                     title: title,
+                                    imageUrl: image,
                                     cookTime: cookTime ?? 30,
                                     servings: servings ?? 1,
                                   ),
