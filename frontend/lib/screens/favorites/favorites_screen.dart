@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme.dart';
+import '../../core/image_helper.dart';
 import '../../services/recipe_service.dart';
 import '../recipe/recipe_detail_screen.dart';
 
@@ -85,7 +86,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                         itemBuilder: (context, i) {
                           final r = favorites[i] as Map<String, dynamic>;
                           final title = r['title'] ?? 'Untitled Recipe';
-                          final image = r['image'];
+                          final image = proxiedImageUrl(r['image']);
                           final cookTime = r['cook_time'];
                           final servings = r['servings'];
                           final recipeId = r['recipe_id'].toString();

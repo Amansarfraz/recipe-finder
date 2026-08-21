@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme.dart';
+import '../../core/image_helper.dart';
 import '../../services/recipe_service.dart';
 import '../recipe/recipe_detail_screen.dart';
 
@@ -77,7 +78,7 @@ class _AIResultsScreenState extends State<AIResultsScreen> {
                 final r = widget.recipes[i] as Map<String, dynamic>;
                 final id = r['id'].toString();
                 final title = r['title'] ?? 'Untitled Recipe';
-                final image = r['image'];
+                final image = proxiedImageUrl(r['image']);
                 final readyIn = r['readyInMinutes'] as int?;
                 final servings = r['servings'];
                 final difficulty = _difficultyFor(readyIn);

@@ -9,6 +9,7 @@ from app.routers import (
     users,
     notifications,
     recent_searches,
+    images,
 )
 
 app = FastAPI(title="Recipe Finder API", version="1.0.0")
@@ -29,6 +30,7 @@ app.include_router(shopping_list.router)
 app.include_router(users.router)
 app.include_router(notifications.router)
 app.include_router(recent_searches.router)
+app.include_router(images.router)
 
 
 @app.get("/")
