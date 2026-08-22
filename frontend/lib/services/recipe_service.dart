@@ -21,6 +21,25 @@ class RecipeService {
     return await _api.get('${ApiConstants.recipeSearch}?$qs');
   }
 
+  /// Name/keyword search — powers the "Recipe Find" search screen.
+  Future<Map<String, dynamic>> searchByName(
+    String query, {
+    String cuisine = 'Any',
+    int? maxReadyTime,
+    int? maxCalories,
+    String? sortBy,
+  }) async {
+    final params = {
+      'query': query,
+      'cuisine': cuisine,
+      if (maxReadyTime != null) 'max_ready_time': maxReadyTime.toString(),
+      if (maxCalories != null) 'max_calories': maxCalories.toString(),
+      if (sortBy != null) 'sort_by': sortBy,
+    };
+    final qs = Uri(queryParameters: params).query;
+    return await _api.get('${ApiConstants.recipes}/search-by-name?$qs');
+  }
+
   Future<RecipeModel> getRecipe(String id) async {
     final res = await _api.get('${ApiConstants.recipes}/$id');
     return RecipeModel.fromJson(res);

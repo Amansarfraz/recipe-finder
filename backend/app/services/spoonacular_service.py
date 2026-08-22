@@ -39,13 +39,30 @@ async def get_bulk_recipe_information(recipe_ids: list[int]):
         return resp.json()
 
 
-async def complex_search(ingredients: list[str], diet: str = None, cuisine: str = None, max_ready_time: int = None, number: int = 10):
+async def complex_search(
+    query: str = None,
+    ingredients: list[str] = None,
+    diet: str = None,
+    cuisine: str = None,
+    max_ready_time: int = None,
+    max_calories: int = None,
+    sort: str = None,
+    number: int = 20,
+):
+    """
+    Name/keyword-based search (as opposed to findByIngredients, which
+    matches on pantry items). Supports Spoonacular's native filters
+    directly so we don't have to post-filter in Python.
+    """
     params = {
         "apiKey": settings.spoonacular_api_key,
+        "query": query,
         "includeIngredients": ",".join(ingredients) if ingredients else None,
         "diet": None if not diet or diet.lower() == "any" else diet,
         "cuisine": None if not cuisine or cuisine.lower() == "any" else cuisine,
         "maxReadyTime": max_ready_time,
+        "maxCalories": max_calories,
+        "sort": sort,
         "number": number,
         "addRecipeInformation": True,
     }

@@ -16,22 +16,20 @@ def serialize_recipe(doc) -> dict:
 
 
 def _full_image_url(recipe_id: int) -> str:
-    """
-    findByIngredients only returns a bare filename (or nothing usable) in
-    its 'image' field, not a full URL. Spoonacular's CDN uses a
-    predictable pattern keyed by recipe id, so we build the URL directly
-    instead of trusting whatever 'image' contains.
-    """
     return f"https://img.spoonacular.com/recipes/{recipe_id}-556x370.jpg"
 
 
+def _difficulty_for(minutes) -> str:
+    if minutes is None:
+        return "Medium"
+    if minutes <= 20:
+        return "Easy"
+    if minutes <= 45:
+        return "Medium"
+    return "Hard"
+
+
 async def _find_and_enrich(ing_list: list[str], max_ready_time: Optional[int] = None, number: int = 10):
-    """
-    Uses findByIngredients (forgiving match — works with whatever
-    ingredients are actually available, doesn't require every single
-    one to appear), then enriches with cook time / servings via a
-    bulk info call, and builds a correct, fully-qualified image URL.
-    """
     matches = await spoonacular_service.search_by_ingredients(ing_list, number=number)
     if not matches:
         return []
@@ -79,6 +77,52 @@ async def search_recipes(ingredients: str, diet_type: Optional[str] = "Any",
         external = []
 
     return {"user_recipes": user_recipes, "external_recipes": external}
+
+
+@router.get("/search-by-name")
+async def search_by_name(
+    query: str,
+    cuisine: Optional[str] = "Any",
+    max_ready_time: Optional[int] = None,
+    max_calories: Optional[int] = None,
+    sort_by: Optional[str] = None,
+    number: int = 20,
+):
+    """
+    Name/keyword search — powers the 'Recipe Find' search screen.
+    Unlike /search (ingredient-based), this searches by recipe title/keyword.
+    """
+    try:
+        result = await spoonacular_service.complex_search(
+            query=query,
+            cuisine=cuisine,
+            max_ready_time=max_ready_time,
+            max_calories=max_calories,
+            sort=sort_by,
+            number=number,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Search failed: {str(e)}")
+
+    results = []
+    for r in result.get("results", []):
+        ready_in = r.get("readyInMinutes")
+        score = r.get("spoonacularScore")
+        rating = round(score / 20, 1) if score is not None else None
+        results.append({
+            "id": r["id"],
+            "title": r.get("title"),
+            "image": _full_image_url(r["id"]),
+            "readyInMinutes": ready_in,
+            "servings": r.get("servings"),
+            "difficulty": _difficulty_for(ready_in),
+            "rating": rating,
+        })
+
+    return {
+        "results": results,
+        "total_results": result.get("totalResults", len(results)),
+    }
 
 
 @router.post("/ai-generate")
