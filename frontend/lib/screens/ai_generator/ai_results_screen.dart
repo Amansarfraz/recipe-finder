@@ -24,14 +24,26 @@ class _AIResultsScreenState extends State<AIResultsScreen> {
     return 'Hard';
   }
 
+  void _showSnack(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? AppColors.danger : null,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.only(bottom: 80, left: 16, right: 16),
+      ),
+    );
+  }
+
   Future<void> _toggleFavorite(Map<String, dynamic> r) async {
     final id = r['id'].toString();
     if (_pending.contains(id)) return;
     setState(() => _pending.add(id));
 
-    final isFav = _favoritedIds.contains(id);
+    final wasFav = _favoritedIds.contains(id);
     try {
-      if (isFav) {
+      if (wasFav) {
         await _recipeService.removeFavorite(id);
         setState(() => _favoritedIds.remove(id));
       } else {
@@ -46,10 +58,23 @@ class _AIResultsScreenState extends State<AIResultsScreen> {
         setState(() => _favoritedIds.add(id));
       }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not update favorites: $e')),
-      );
+      try {
+        final actuallyFavorited = await _recipeService.isFavorited(id);
+        setState(() {
+          if (actuallyFavorited) {
+            _favoritedIds.add(id);
+          } else {
+            _favoritedIds.remove(id);
+          }
+        });
+        if (actuallyFavorited != !wasFav) {
+          if (!mounted) return;
+          _showSnack('Could not update favorites: $e', isError: true);
+        }
+      } catch (_) {
+        if (!mounted) return;
+        _showSnack('Could not update favorites: $e', isError: true);
+      }
     } finally {
       if (mounted) setState(() => _pending.remove(id));
     }
@@ -90,6 +115,7 @@ class _AIResultsScreenState extends State<AIResultsScreen> {
                       context,
                       MaterialPageRoute(
                         builder: (_) => RecipeDetailScreen(
+                          recipeId: id,
                           title: title,
                           imageUrl: image,
                           cookTime: readyIn ?? 30,

@@ -97,6 +97,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => RecipeDetailScreen(
+                                    recipeId: recipeId,
                                     title: title,
                                     imageUrl: image,
                                     cookTime: cookTime ?? 30,
