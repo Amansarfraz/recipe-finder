@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/theme.dart';
+import '../../services/recipe_service.dart';
 
 class RecipeDetailScreen extends StatefulWidget {
+  final String? recipeId; // Spoonacular id (or our Mongo id) — enables comments
   final String title;
   final String? imageUrl;
   final int cookTime;
@@ -13,6 +15,7 @@ class RecipeDetailScreen extends StatefulWidget {
 
   const RecipeDetailScreen({
     super.key,
+    this.recipeId,
     this.title = 'Chicken Tomato Curry',
     this.imageUrl,
     this.cookTime = 50,
@@ -50,14 +53,63 @@ class RecipeDetailScreen extends StatefulWidget {
 class _RecipeDetailScreenState extends State<RecipeDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  bool isFavorite = false;
+  final RecipeService _recipeService = RecipeService();
   final commentCtrl = TextEditingController();
-  final List<Map<String, dynamic>> comments = [];
+
+  List<dynamic> comments = [];
+  bool isLoadingComments = false;
+  bool isPostingComment = false;
+  int selectedRating = 5;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    if (widget.recipeId != null) {
+      _loadComments();
+    }
+  }
+
+  Future<void> _loadComments() async {
+    setState(() => isLoadingComments = true);
+    try {
+      final result = await _recipeService.getComments(widget.recipeId!);
+      setState(() => comments = result);
+    } catch (_) {
+      // best-effort — leave list empty on failure
+    } finally {
+      if (mounted) setState(() => isLoadingComments = false);
+    }
+  }
+
+  Future<void> _postComment() async {
+    final text = commentCtrl.text.trim();
+    if (text.isEmpty || widget.recipeId == null) return;
+
+    setState(() => isPostingComment = true);
+    try {
+      await _recipeService.addComment(widget.recipeId!, text,
+          rating: selectedRating);
+      commentCtrl.clear();
+      await _loadComments(); // refresh from server so it's never just a local echo
+    } catch (e) {
+      if (!mounted) return;
+      _showSnack('Could not post your review: $e', isError: true);
+    } finally {
+      if (mounted) setState(() => isPostingComment = false);
+    }
+  }
+
+  void _showSnack(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? AppColors.danger : null,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.only(bottom: 80, left: 16, right: 16),
+      ),
+    );
   }
 
   @override
@@ -69,12 +121,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
             expandedHeight: 220,
             pinned: true,
             backgroundColor: AppColors.primary,
-            actions: [
-              IconButton(
-                icon: Icon(isFavorite ? Icons.favorite : Icons.favorite_border),
-                onPressed: () => setState(() => isFavorite = !isFavorite),
-              ),
-            ],
             flexibleSpace: FlexibleSpaceBar(
               background: widget.imageUrl != null
                   ? Image.network(
@@ -133,40 +179,102 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
                       style:
                           TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: commentCtrl,
-                          decoration: const InputDecoration(
-                              hintText: 'Write a review...'),
+                  if (widget.recipeId == null)
+                    const Text(
+                      'Reviews aren\'t available for this recipe yet.',
+                      style: TextStyle(color: AppColors.textGrey, fontSize: 13),
+                    )
+                  else ...[
+                    Row(
+                      children: List.generate(5, (i) {
+                        final starIndex = i + 1;
+                        return IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: Icon(
+                            starIndex <= selectedRating
+                                ? Icons.star
+                                : Icons.star_border,
+                            color: Colors.amber,
+                            size: 22,
+                          ),
+                          onPressed: () =>
+                              setState(() => selectedRating = starIndex),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: commentCtrl,
+                            decoration: const InputDecoration(
+                                hintText: 'Write a review...'),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.send, color: AppColors.primary),
-                        onPressed: () {
-                          if (commentCtrl.text.trim().isEmpty) return;
-                          setState(() {
-                            comments.insert(
-                                0, {'text': commentCtrl.text, 'rating': 5});
-                            commentCtrl.clear();
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  ...comments.map((c) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12)),
-                          child: Text(c['text']),
-                        ),
-                      )),
+                        const SizedBox(width: 8),
+                        isPostingComment
+                            ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2))
+                            : IconButton(
+                                icon: const Icon(Icons.send,
+                                    color: AppColors.primary),
+                                onPressed: _postComment,
+                              ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    if (isLoadingComments)
+                      const Center(
+                          child: Padding(
+                              padding: EdgeInsets.all(12),
+                              child: CircularProgressIndicator()))
+                    else if (comments.isEmpty)
+                      const Text('No reviews yet — be the first!',
+                          style: TextStyle(color: AppColors.textGrey))
+                    else
+                      ...comments.map((c) => Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12)),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(c['user_name'] ?? 'Anonymous',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 13)),
+                                      const Spacer(),
+                                      Row(
+                                        children: List.generate(
+                                          5,
+                                          (i) => Icon(
+                                            i < (c['rating'] ?? 0)
+                                                ? Icons.star
+                                                : Icons.star_border,
+                                            color: Colors.amber,
+                                            size: 14,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(c['text'] ?? ''),
+                                ],
+                              ),
+                            ),
+                          )),
+                  ],
                 ],
               ),
             ),

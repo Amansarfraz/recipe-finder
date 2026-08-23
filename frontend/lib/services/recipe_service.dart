@@ -21,7 +21,6 @@ class RecipeService {
     return await _api.get('${ApiConstants.recipeSearch}?$qs');
   }
 
-  /// Name/keyword search — powers the "Recipe Find" search screen.
   Future<Map<String, dynamic>> searchByName(
     String query, {
     String cuisine = 'Any',
@@ -78,6 +77,14 @@ class RecipeService {
     await _api.delete('${ApiConstants.favorites}/$recipeId');
   }
 
+  /// Checks against the server whether a recipe is currently favorited.
+  /// Used to recover from ambiguous network errors — e.g. a request that
+  /// timed out client-side but actually succeeded server-side.
+  Future<bool> isFavorited(String recipeId) async {
+    final all = await getFavorites();
+    return all.any((f) => f['recipe_id'].toString() == recipeId);
+  }
+
   // ---- Recent Searches ----
 
   Future<List<dynamic>> getRecentSearches() async {
@@ -86,5 +93,19 @@ class RecipeService {
 
   Future<void> logRecentSearch(String query) async {
     await _api.post(ApiConstants.recentSearches, {'query': query});
+  }
+
+  // ---- Comments / Reviews ----
+
+  Future<List<dynamic>> getComments(String recipeId) async {
+    return await _api.get('${ApiConstants.recipes}/$recipeId/comments');
+  }
+
+  Future<void> addComment(String recipeId, String text,
+      {int rating = 5}) async {
+    await _api.post('${ApiConstants.recipes}/$recipeId/comments', {
+      'text': text,
+      'rating': rating,
+    });
   }
 }
