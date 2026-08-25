@@ -19,6 +19,7 @@ async def add_comment(recipe_id: str, payload: CommentCreate, current_user: dict
     }
     result = await comments_collection.insert_one(doc)
     doc["id"] = str(result.inserted_id)
+    doc.pop("_id", None)
     return doc
 
 

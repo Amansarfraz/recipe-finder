@@ -32,6 +32,7 @@ async def add_favorite(payload: FavoriteCreate, current_user: dict = Depends(get
     doc["user_id"] = current_user["_id"]
     result = await favorites_collection.insert_one(doc)
     doc["id"] = str(result.inserted_id)
+    doc.pop("_id", None)
     doc.pop("user_id", None)
     return doc
 

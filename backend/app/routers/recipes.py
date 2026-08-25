@@ -1,3 +1,4 @@
+import re
 from fastapi import APIRouter, Depends, HTTPException
 from bson import ObjectId
 from typing import Optional
@@ -15,7 +16,7 @@ def serialize_recipe(doc) -> dict:
     return doc
 
 
-def _full_image_url(recipe_id: int) -> str:
+def _full_image_url(recipe_id) -> str:
     return f"https://img.spoonacular.com/recipes/{recipe_id}-556x370.jpg"
 
 
@@ -88,10 +89,6 @@ async def search_by_name(
     sort_by: Optional[str] = None,
     number: int = 20,
 ):
-    """
-    Name/keyword search — powers the 'Recipe Find' search screen.
-    Unlike /search (ingredient-based), this searches by recipe title/keyword.
-    """
     try:
         result = await spoonacular_service.complex_search(
             query=query,
@@ -125,6 +122,48 @@ async def search_by_name(
     }
 
 
+@router.get("/external/{recipe_id}")
+async def get_external_recipe_details(recipe_id: int):
+    try:
+        info = await spoonacular_service.get_recipe_information(recipe_id)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not fetch recipe: {str(e)}")
+
+    ingredients = [
+        {
+            "name": ing.get("name", "").title() or ing.get("original", ""),
+            "amount": f"{ing.get('amount', '')} {ing.get('unit', '')}".strip(),
+        }
+        for ing in info.get("extendedIngredients", [])
+    ]
+
+    instructions = []
+    analyzed = info.get("analyzedInstructions", [])
+    if analyzed and analyzed[0].get("steps"):
+        instructions = [step.get("step", "") for step in analyzed[0]["steps"]]
+    elif info.get("instructions"):
+        raw = re.sub("<[^<]+?>", "", info["instructions"])
+        instructions = [s.strip() for s in raw.split(".") if s.strip()]
+
+    nutrition = {}
+    for n in info.get("nutrition", {}).get("nutrients", []):
+        if n.get("name") in ("Calories", "Protein", "Carbohydrates", "Fat"):
+            nutrition[n["name"]] = f"{round(n.get('amount', 0))}{n.get('unit', '')}"
+
+    ready_in = info.get("readyInMinutes")
+
+    return {
+        "title": info.get("title"),
+        "image": _full_image_url(recipe_id),
+        "readyInMinutes": ready_in,
+        "servings": info.get("servings"),
+        "difficulty": _difficulty_for(ready_in),
+        "ingredients": ingredients,
+        "instructions": instructions,
+        "nutrition": nutrition,
+    }
+
+
 @router.post("/ai-generate")
 async def ai_generate_recipe(payload: AIRecipeRequest):
     try:
@@ -150,4 +189,5 @@ async def create_recipe(payload: RecipeCreate, current_user: dict = Depends(get_
     doc["rating_count"] = 0
     result = await recipes_collection.insert_one(doc)
     doc["id"] = str(result.inserted_id)
+    doc.pop("_id", None)
     return doc
