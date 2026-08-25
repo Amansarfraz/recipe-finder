@@ -39,6 +39,14 @@ class RecipeService {
     return await _api.get('${ApiConstants.recipes}/search-by-name?$qs');
   }
 
+  /// Full detail lookup for a Spoonacular (external) recipe — real
+  /// ingredients, step-by-step instructions, and nutrition, keyed by
+  /// the numeric Spoonacular id. This is what fixes the Recipe Detail
+  /// screen showing placeholder data for every recipe.
+  Future<Map<String, dynamic>> getExternalRecipeDetails(String recipeId) async {
+    return await _api.get('${ApiConstants.recipes}/external/$recipeId');
+  }
+
   Future<RecipeModel> getRecipe(String id) async {
     final res = await _api.get('${ApiConstants.recipes}/$id');
     return RecipeModel.fromJson(res);
@@ -77,9 +85,6 @@ class RecipeService {
     await _api.delete('${ApiConstants.favorites}/$recipeId');
   }
 
-  /// Checks against the server whether a recipe is currently favorited.
-  /// Used to recover from ambiguous network errors — e.g. a request that
-  /// timed out client-side but actually succeeded server-side.
   Future<bool> isFavorited(String recipeId) async {
     final all = await getFavorites();
     return all.any((f) => f['recipe_id'].toString() == recipeId);

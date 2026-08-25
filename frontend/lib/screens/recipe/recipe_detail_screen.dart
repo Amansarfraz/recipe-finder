@@ -3,47 +3,21 @@ import '../../core/theme.dart';
 import '../../services/recipe_service.dart';
 
 class RecipeDetailScreen extends StatefulWidget {
-  final String? recipeId; // Spoonacular id (or our Mongo id) — enables comments
+  final String? recipeId;
   final String title;
   final String? imageUrl;
   final int cookTime;
   final String difficulty;
   final int servings;
-  final List<Map<String, String>> ingredients;
-  final List<String> instructions;
-  final Map<String, String> nutrition;
 
   const RecipeDetailScreen({
     super.key,
     this.recipeId,
-    this.title = 'Chicken Tomato Curry',
+    this.title = 'Recipe',
     this.imageUrl,
-    this.cookTime = 50,
+    this.cookTime = 30,
     this.difficulty = 'Medium',
-    this.servings = 5,
-    this.ingredients = const [
-      {'name': 'Chicken', 'amount': '500g'},
-      {'name': 'Tomato', 'amount': '4 large'},
-      {'name': 'Onions', 'amount': '3 medium'},
-      {'name': 'Spices', 'amount': '3 tbsp'},
-      {'name': 'Cooking Oil', 'amount': '1 cup'},
-      {'name': 'Garlic', 'amount': '4 cloves'},
-      {'name': 'Curry Powder', 'amount': '3 tbsp'},
-    ],
-    this.instructions = const [
-      'Heat oil in a large pan over medium heat.',
-      'Add chopped onions and garlic, sauté until golden.',
-      'Add chicken pieces and cook until browned.',
-      'Stir in tomatoes, spices, and curry powder.',
-      'Simmer covered for 30 minutes until chicken is tender.',
-      'Serve hot with rice or naan.',
-    ],
-    this.nutrition = const {
-      'Calories': '420 kcal',
-      'Protein': '32g',
-      'Carbs': '18g',
-      'Fat': '22g'
-    },
+    this.servings = 1,
   });
 
   @override
@@ -56,6 +30,17 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
   final RecipeService _recipeService = RecipeService();
   final commentCtrl = TextEditingController();
 
+  late String title;
+  late int cookTime;
+  late String difficulty;
+  late int servings;
+  List<Map<String, String>> ingredients = [];
+  List<String> instructions = [];
+  Map<String, String> nutrition = {};
+
+  bool isLoadingDetails = false;
+  String? detailsError;
+
   List<dynamic> comments = [];
   bool isLoadingComments = false;
   bool isPostingComment = false;
@@ -65,8 +50,46 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    title = widget.title;
+    cookTime = widget.cookTime;
+    difficulty = widget.difficulty;
+    servings = widget.servings;
+
     if (widget.recipeId != null) {
+      _loadFullDetails();
       _loadComments();
+    }
+  }
+
+  Future<void> _loadFullDetails() async {
+    setState(() {
+      isLoadingDetails = true;
+      detailsError = null;
+    });
+    try {
+      final data =
+          await _recipeService.getExternalRecipeDetails(widget.recipeId!);
+      setState(() {
+        title = data['title'] ?? title;
+        cookTime = data['readyInMinutes'] ?? cookTime;
+        difficulty = data['difficulty'] ?? difficulty;
+        servings = data['servings'] ?? servings;
+        ingredients = (data['ingredients'] as List? ?? [])
+            .map<Map<String, String>>((e) => {
+                  'name': (e['name'] ?? '').toString(),
+                  'amount': (e['amount'] ?? '').toString(),
+                })
+            .toList();
+        instructions = (data['instructions'] as List? ?? [])
+            .map((e) => e.toString())
+            .toList();
+        nutrition = (data['nutrition'] as Map? ?? {})
+            .map((k, v) => MapEntry(k.toString(), v.toString()));
+      });
+    } catch (e) {
+      setState(() => detailsError = 'Could not load full recipe details: $e');
+    } finally {
+      if (mounted) setState(() => isLoadingDetails = false);
     }
   }
 
@@ -76,7 +99,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
       final result = await _recipeService.getComments(widget.recipeId!);
       setState(() => comments = result);
     } catch (_) {
-      // best-effort — leave list empty on failure
     } finally {
       if (mounted) setState(() => isLoadingComments = false);
     }
@@ -91,7 +113,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
       await _recipeService.addComment(widget.recipeId!, text,
           rating: selectedRating);
       commentCtrl.clear();
-      await _loadComments(); // refresh from server so it's never just a local echo
+      await _loadComments();
     } catch (e) {
       if (!mounted) return;
       _showSnack('Could not post your review: $e', isError: true);
@@ -138,42 +160,55 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(widget.title,
+                  Text(title,
                       style: const TextStyle(
                           fontSize: 22, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      _infoChip(Icons.access_time, '${widget.cookTime} min'),
+                      _infoChip(Icons.access_time, '$cookTime min'),
                       const SizedBox(width: 10),
-                      _infoChip(Icons.bar_chart, widget.difficulty),
+                      _infoChip(Icons.bar_chart, difficulty),
                       const SizedBox(width: 10),
-                      _infoChip(Icons.people, '${widget.servings} servings'),
+                      _infoChip(Icons.people, '$servings servings'),
                     ],
                   ),
                   const SizedBox(height: 20),
-                  TabBar(
-                    controller: _tabController,
-                    labelColor: AppColors.primary,
-                    unselectedLabelColor: AppColors.textGrey,
-                    indicatorColor: AppColors.primary,
-                    tabs: const [
-                      Tab(text: 'Ingredients'),
-                      Tab(text: 'Instructions'),
-                      Tab(text: 'Nutrition')
-                    ],
-                  ),
-                  SizedBox(
-                    height: 320,
-                    child: TabBarView(
+                  if (isLoadingDetails)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (detailsError != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      child: Text(detailsError!,
+                          style: const TextStyle(color: AppColors.danger)),
+                    )
+                  else ...[
+                    TabBar(
                       controller: _tabController,
-                      children: [
-                        _ingredientsTab(),
-                        _instructionsTab(),
-                        _nutritionTab()
+                      labelColor: AppColors.primary,
+                      unselectedLabelColor: AppColors.textGrey,
+                      indicatorColor: AppColors.primary,
+                      tabs: const [
+                        Tab(text: 'Ingredients'),
+                        Tab(text: 'Instructions'),
+                        Tab(text: 'Nutrition')
                       ],
                     ),
-                  ),
+                    SizedBox(
+                      height: 320,
+                      child: TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _ingredientsTab(),
+                          _instructionsTab(),
+                          _nutritionTab()
+                        ],
+                      ),
+                    ),
+                  ],
                   const Divider(height: 40),
                   const Text('Comments & Reviews',
                       style:
@@ -316,8 +351,13 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
   }
 
   Widget _ingredientsTab() {
+    if (ingredients.isEmpty) {
+      return const Center(
+          child: Text('No ingredients listed for this recipe.',
+              style: TextStyle(color: AppColors.textGrey)));
+    }
     return ListView(
-      children: widget.ingredients
+      children: ingredients
           .map((ing) => ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading:
@@ -331,8 +371,13 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
   }
 
   Widget _instructionsTab() {
+    if (instructions.isEmpty) {
+      return const Center(
+          child: Text('No instructions available for this recipe.',
+              style: TextStyle(color: AppColors.textGrey)));
+    }
     return ListView.builder(
-      itemCount: widget.instructions.length,
+      itemCount: instructions.length,
       itemBuilder: (context, i) => Padding(
         padding: const EdgeInsets.only(bottom: 14),
         child: Row(
@@ -344,7 +389,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
                 child: Text('${i + 1}',
                     style: const TextStyle(color: Colors.white, fontSize: 12))),
             const SizedBox(width: 10),
-            Expanded(child: Text(widget.instructions[i])),
+            Expanded(child: Text(instructions[i])),
           ],
         ),
       ),
@@ -352,8 +397,13 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
   }
 
   Widget _nutritionTab() {
+    if (nutrition.isEmpty) {
+      return const Center(
+          child: Text('No nutrition data available for this recipe.',
+              style: TextStyle(color: AppColors.textGrey)));
+    }
     return ListView(
-      children: widget.nutrition.entries
+      children: nutrition.entries
           .map((e) => ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(e.key),
