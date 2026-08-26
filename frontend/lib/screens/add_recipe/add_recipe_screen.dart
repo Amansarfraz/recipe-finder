@@ -1,4 +1,7 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/theme.dart';
 import '../../models/recipe_model.dart';
 import '../../services/recipe_service.dart';
@@ -20,10 +23,14 @@ class _AddRecipeScreenState extends State<AddRecipeScreen> {
   final cookTimeCtrl = TextEditingController();
   final servingsCtrl = TextEditingController();
   final RecipeService _recipeService = RecipeService();
+  final ImagePicker _picker = ImagePicker();
 
   final List<_IngredientRow> ingredientRows = [_IngredientRow()];
   final List<TextEditingController> stepCtrls = [TextEditingController()];
 
+  Uint8List? photoBytes;
+  String? photoDataUri; // small base64 data URI — no cloud storage needed
+  bool isPickingPhoto = false;
   bool isPublishing = false;
 
   void _showSnack(String message, {bool isError = false}) {
@@ -36,6 +43,33 @@ class _AddRecipeScreenState extends State<AddRecipeScreen> {
         margin: const EdgeInsets.only(bottom: 80, left: 16, right: 16),
       ),
     );
+  }
+
+  Future<void> _pickPhoto() async {
+    setState(() => isPickingPhoto = true);
+    try {
+      final XFile? picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth:
+            800, // keep the encoded size reasonable since it's stored as text in Mongo
+        imageQuality: 70,
+      );
+      if (picked == null) return; // user cancelled
+
+      final bytes = await picked.readAsBytes();
+      final mimeType = picked.mimeType ?? 'image/jpeg';
+      final base64Str = base64Encode(bytes);
+
+      setState(() {
+        photoBytes = bytes;
+        photoDataUri = 'data:$mimeType;base64,$base64Str';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      _showSnack('Could not select photo: $e', isError: true);
+    } finally {
+      if (mounted) setState(() => isPickingPhoto = false);
+    }
   }
 
   Future<void> _publish() async {
@@ -71,6 +105,7 @@ class _AddRecipeScreenState extends State<AddRecipeScreen> {
     try {
       final recipe = RecipeModel(
         title: title,
+        photoUrl: photoDataUri,
         ingredients: ingredients,
         steps: steps,
         cuisine:
@@ -80,7 +115,7 @@ class _AddRecipeScreenState extends State<AddRecipeScreen> {
       );
       await _recipeService.createRecipe(recipe);
       if (!mounted) return;
-      _showSnack('Recipe published!');
+      _showSnack('Recipe published! Check My Recipes in your Profile.');
       _resetForm();
     } catch (e) {
       if (!mounted) return;
@@ -96,6 +131,8 @@ class _AddRecipeScreenState extends State<AddRecipeScreen> {
       cuisineCtrl.clear();
       cookTimeCtrl.clear();
       servingsCtrl.clear();
+      photoBytes = null;
+      photoDataUri = null;
       ingredientRows
         ..clear()
         ..add(_IngredientRow());
@@ -117,26 +154,66 @@ class _AddRecipeScreenState extends State<AddRecipeScreen> {
             const Text('Recipe Profile',
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
             const SizedBox(height: 10),
-            Container(
-              height: 130,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: AppColors.primaryLight.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.primaryLight),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.camera_alt,
-                      color: AppColors.primary, size: 32),
-                  const SizedBox(height: 8),
-                  const Text('Photo upload coming soon',
-                      style: TextStyle(color: AppColors.textGrey)),
-                  const Text('You can still publish your recipe without one',
-                      style:
-                          TextStyle(color: AppColors.textGrey, fontSize: 11)),
-                ],
+            GestureDetector(
+              onTap: isPickingPhoto ? null : _pickPhoto,
+              child: Container(
+                height: 160,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.primaryLight),
+                ),
+                child: photoBytes != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.memory(photoBytes!, fit: BoxFit.cover),
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: CircleAvatar(
+                                backgroundColor: Colors.white,
+                                radius: 16,
+                                child: IconButton(
+                                  padding: EdgeInsets.zero,
+                                  icon: const Icon(Icons.close,
+                                      size: 18, color: AppColors.danger),
+                                  onPressed: () => setState(() {
+                                    photoBytes = null;
+                                    photoDataUri = null;
+                                  }),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          isPickingPhoto
+                              ? const CircularProgressIndicator()
+                              : const Icon(Icons.camera_alt,
+                                  color: AppColors.primary, size: 32),
+                          const SizedBox(height: 8),
+                          const Text('Add a photo of your recipe',
+                              style: TextStyle(color: AppColors.textGrey)),
+                          const Text('JPG, PNG, JPEG',
+                              style: TextStyle(
+                                  color: AppColors.textGrey, fontSize: 12)),
+                          const SizedBox(height: 8),
+                          ElevatedButton(
+                            onPressed: isPickingPhoto ? null : _pickPhoto,
+                            style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 8)),
+                            child: const Text('Choose Photo'),
+                          ),
+                        ],
+                      ),
               ),
             ),
             const SizedBox(height: 20),

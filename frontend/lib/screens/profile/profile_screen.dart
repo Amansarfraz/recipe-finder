@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
+import 'my_recipes_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -30,6 +31,9 @@ class ProfileScreen extends StatelessWidget {
           const SizedBox(height: 30),
           _menuTile(Icons.edit, 'Edit Profile', () {}),
           _menuTile(Icons.restaurant_menu, 'Dietary Preferences', () {}),
+          _menuTile(Icons.menu_book, 'My Recipes', () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const MyRecipesScreen()));
+          }),
           _menuTile(Icons.favorite_border, 'My Favorites', () {}),
           _menuTile(Icons.shopping_cart_outlined, 'Shopping List', () {}),
           _menuTile(Icons.notifications_none, 'Notifications', () {}),
