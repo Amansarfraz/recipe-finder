@@ -39,10 +39,6 @@ class RecipeService {
     return await _api.get('${ApiConstants.recipes}/search-by-name?$qs');
   }
 
-  /// Full detail lookup for a Spoonacular (external) recipe — real
-  /// ingredients, step-by-step instructions, and nutrition, keyed by
-  /// the numeric Spoonacular id. This is what fixes the Recipe Detail
-  /// screen showing placeholder data for every recipe.
   Future<Map<String, dynamic>> getExternalRecipeDetails(String recipeId) async {
     return await _api.get('${ApiConstants.recipes}/external/$recipeId');
   }
@@ -55,6 +51,11 @@ class RecipeService {
   Future<RecipeModel> createRecipe(RecipeModel recipe) async {
     final res = await _api.post(ApiConstants.recipes, recipe.toJson());
     return RecipeModel.fromJson(res);
+  }
+
+  /// Recipes the logged-in user has personally published via Add Recipe.
+  Future<List<dynamic>> getMyRecipes() async {
+    return await _api.get('${ApiConstants.recipes}/mine');
   }
 
   // ---- Favorites ----
