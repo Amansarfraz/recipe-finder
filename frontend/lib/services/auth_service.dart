@@ -43,4 +43,20 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('auth_token') != null;
   }
+
+  /// Updates the logged-in user's profile (name, photo, dietary prefs).
+  /// Any field left null is left unchanged on the backend.
+  Future<UserModel> updateProfile({
+    String? name,
+    String? profilePhoto,
+    List<String>? dietaryPrefs,
+  }) async {
+    final body = <String, dynamic>{};
+    if (name != null) body['name'] = name;
+    if (profilePhoto != null) body['profile_photo'] = profilePhoto;
+    if (dietaryPrefs != null) body['dietary_prefs'] = dietaryPrefs;
+
+    final res = await _api.patch(ApiConstants.userMe, body);
+    return UserModel.fromJson(res);
+  }
 }
