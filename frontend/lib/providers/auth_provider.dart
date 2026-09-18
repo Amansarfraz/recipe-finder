@@ -28,6 +28,20 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<bool> updateProfile({
+    String? name,
+    String? profilePhoto,
+    List<String>? dietaryPrefs,
+  }) async {
+    return _run(() async {
+      _user = await _authService.updateProfile(
+        name: name,
+        profilePhoto: profilePhoto,
+        dietaryPrefs: dietaryPrefs,
+      );
+    });
+  }
+
   Future<bool> _run(Future<void> Function() action) async {
     _isLoading = true;
     _error = null;
