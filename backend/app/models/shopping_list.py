@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 
 class ShoppingItem(BaseModel):
@@ -13,3 +13,14 @@ class ShoppingListOut(BaseModel):
 
 class GenerateFromRecipe(BaseModel):
     recipe_id: str
+
+
+class AddIngredients(BaseModel):
+    """Add a batch of ingredient names directly — used when generating
+    a shopping list from an external (Spoonacular) recipe, since those
+    aren't stored in our own recipes collection and have no Mongo id."""
+    ingredients: List[str]
+
+
+class AddItem(BaseModel):
+    name: str
