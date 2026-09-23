@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
+import '../shopping_list/shopping_list_screen.dart';
 import 'my_recipes_screen.dart';
 import 'edit_profile_screen.dart';
 
@@ -69,7 +70,10 @@ class ProfileScreen extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => const MyRecipesScreen()));
           }),
           _menuTile(Icons.favorite_border, 'My Favorites', () {}),
-          _menuTile(Icons.shopping_cart_outlined, 'Shopping List', () {}),
+          _menuTile(Icons.shopping_cart_outlined, 'Shopping List', () {
+            Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const ShoppingListScreen()));
+          }),
           _menuTile(Icons.notifications_none, 'Notifications', () {}),
           _menuTile(Icons.help_outline, 'Help & Support', () {}),
           const SizedBox(height: 10),
